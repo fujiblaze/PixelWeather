@@ -1,26 +1,20 @@
 import type { PropsWithChildren } from "react";
 import Header from "./header";
-import "./Layout.css";
 
-const Layout = ({ children }: PropsWithChildren) => {
+export default function Layout({ children }: PropsWithChildren) {
   return (
-    <div className="body">
-      {/* header */}
+    <div className="min-h-screen">
       <Header />
-
-      {/* main */}
-      <main className="min-h-screen container mx-auto px-4 py-8">
+      <main className="container mx-auto min-h-[calc(100vh-9rem)] px-4 py-8">
         {children}
       </main>
-
-      {/* footer */}
-      <footer className="border-t backdrop-blur py-4 supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto text-end text-gray-600 text-xl">
-          <p>&copy; {new Date().getFullYear()} made by fujimori_</p>
+      <footer className="site-footer">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 text-sm">
+          <p><span className="copyright-symbol">©</span> {new Date().getFullYear()} made by fujimori_</p>
+          <p>Pixel art: <a href="https://opengameart.org/users/craftpixnet-2d-game-assets" target="_blank" rel="noreferrer">CraftPix.net</a>
+            {" / "}<a href="https://najjar320.itch.io/vista-parallax-backgrounds" target="_blank" rel="noreferrer">najjar320</a>{" · "}Weather: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a></p>
         </div>
       </footer>
     </div>
   );
-};
-
-export default Layout;
+}

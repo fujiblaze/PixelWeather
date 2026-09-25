@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Coordinates } from "../../api/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Coordinates } from "../../api/types";
 
 interface LocationState {
   coordinates: Coordinates | null;
@@ -8,74 +8,43 @@ interface LocationState {
 }
 
 export function useLocation() {
+  const requestId = useRef(0);
   const [locationData, setLocationData] = useState<LocationState>({
-    coordinates: null,
-    error: null,
-    isLoading: true,
+    coordinates: null, error: null, isLoading: true,
   });
 
-  const getLocation = () => {
-    setLocationData((prev) => ({ ...prev, isLoading: true, error: null }));
-
+  const getLocation = useCallback(() => {
+    const id = ++requestId.current;
+    setLocationData((previous) => ({ ...previous, isLoading: true, error: null }));
     if (!navigator.geolocation) {
-      setLocationData({
-        coordinates: null,
-        error: "Geolocation is not supported in your browser",
-        isLoading: false,
-      });
+      setLocationData({ coordinates: null, error: "This browser does not support location access. Search for a city instead.", isLoading: false });
+      return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        // return data
-        return setLocationData({
-          coordinates: {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-          },
-          error: null,
-          isLoading: false,
+        if (id !== requestId.current) return;
+        setLocationData({
+          coordinates: { lat: position.coords.latitude, lon: position.coords.longitude },
+          error: null, isLoading: false,
         });
       },
       (error) => {
-        let errorMessage: string = "";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "Location perms denied, please enable location access in your browser.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage =
-              "Unable to find your current location, please try again later.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-          default:
-            errorMessage = "An unknown error occurred, please try again later.";
-        }
-
-        setLocationData({
-          coordinates: null,
-          error: errorMessage,
-          isLoading: false,
-        });
+        if (id !== requestId.current) return;
+        const message = error.code === error.PERMISSION_DENIED
+          ? "Location access is off. Enable it in your browser, or search for a city."
+          : error.code === error.TIMEOUT
+            ? "Finding your location timed out. Try again or search for a city."
+            : "Your location is unavailable. Try again or search for a city.";
+        setLocationData((previous) => ({ coordinates: previous.coordinates, error: message, isLoading: false }));
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 5 * 60 * 1000 },
     );
-  };
+  }, []);
 
   useEffect(() => {
     getLocation();
-  }, []);
+    return () => { requestId.current += 1; };
+  }, [getLocation]);
 
-  return {
-    ...locationData,
-    getLocation,
-  };
+  return { ...locationData, getLocation };
 }

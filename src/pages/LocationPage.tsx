@@ -1,81 +1,57 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { useForecast, useWeather } from "../components/hooks/useWeather";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { Button } from "../components/ui/button";
 import LoadingSkeleton from "../components/LoadingSkeleton";
-import CurrentWeather from "../components/CurrentWeather";
-import HourlyTemp from "../components/HourlyTemp";
-import Details from "../components/Details";
-import Forecast from "../components/Forecast";
+import WeatherPanels from "../components/WeatherPanels";
 import FavouriteButton from "../components/favouriteButton";
 import Favourites from "../components/Favourites";
 
-const LocationPage = () => {
-  const params = useParams();
-  const [searchParams] = useSearchParams();
-
-  const lat = parseFloat(searchParams.get("lat") || "0");
-  const lon = parseFloat(searchParams.get("lon") || "0");
-
-  const coords = { lat, lon }
-
-  const queries = {
-    weather: useWeather(coords),
-    forecast: useForecast(coords),
-  };
-
-  if (queries.weather.error || queries.forecast.error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertTitle className="text-2xl">Error fetching weather</AlertTitle>
-        <AlertDescription className="flex flex-col gap-4 text-xl">
-          <p>Failed to fetch weather data for your location.</p>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (!queries.weather.data || !queries.forecast.data || !params.cityName) {
-    return <LoadingSkeleton />;
-  }
+export default function LocationPage() {
+  const { cityName } = useParams();
+  const [params] = useSearchParams();
+  const lat = Number(params.get("lat"));
+  const lon = Number(params.get("lon"));
+  const valid = params.has("lat") && params.has("lon") &&
+    Number.isFinite(lat) && Number.isFinite(lon) &&
+    lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+  const coords = valid ? { lat, lon } : null;
+  const weather = useWeather(coords);
+  const forecast = useForecast(coords);
+  const country = params.get("country") || "";
+  const state = params.get("state") || "";
+  const name = cityName || "Selected location";
 
   return (
-    <div className="space-y-4">
-      {/* favourites */}
+    <div className="space-y-5">
       <Favourites />
-
-      {/* main layout */}
-      <section className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-muted-foreground">
-          {params.cityName}, {queries.weather.data.sys.country}
-        </h1>
-
+      <section className="flex items-center justify-between gap-4">
         <div>
-          <FavouriteButton data={{ ...queries.weather.data, name: params.cityName }} />
+          <p className="eyebrow">CITY TRANSMISSION / 002</p>
+          <h1 className="page-title">{name}{country ? ", " + country : ""}</h1>
         </div>
+        {weather.data && (
+          <FavouriteButton state={state} data={{
+            ...weather.data, name,
+            sys: { ...weather.data.sys, country },
+          }} />
+        )}
       </section>
-
-      {/* current and hourly */}
-      <section className="grid gap-6">
-        <div className="flex flex-col gap-4">
-          {/* current weather */}
-          <CurrentWeather
-            data={queries.weather.data}
-          />
-          {/* hourly temp */}
-          <HourlyTemp data={queries.forecast.data} />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 items-start">
-          {/* details */}
-          <Details data={queries.weather.data} />
-          {/* forecast */}
-          <Forecast data={queries.forecast.data} />
-        </div>
-      </section>
+      {!valid ? (
+        <Alert className="pixel-card"><AlertTitle>Invalid location link</AlertTitle>
+          <AlertDescription>Search for a city to open a valid forecast.</AlertDescription>
+        </Alert>
+      ) : weather.error || forecast.error ? (
+        <Alert className="pixel-card"><AlertTitle>Weather signal lost</AlertTitle>
+          <AlertDescription className="space-y-4">
+            <p>{(weather.error || forecast.error)?.message || "Could not load this forecast."}</p>
+            <Button className="pixel-button" onClick={() => void Promise.all([weather.refetch(), forecast.refetch()])}>Retry forecast</Button>
+          </AlertDescription>
+        </Alert>
+      ) : !weather.data || !forecast.data ? <LoadingSkeleton /> : (
+        <WeatherPanels weather={weather.data} forecast={forecast.data}
+          locationName={{ name, country, state, lat, lon, local_names: {} }} />
+      )}
     </div>
   );
-};
-
-export default LocationPage;
+}

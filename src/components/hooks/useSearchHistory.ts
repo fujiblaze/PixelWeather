@@ -1,7 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalStorage } from "./useLocalStorage";
 
-interface SearchHistoryItem {
+export interface SearchHistoryItem {
   id: string;
   query: string;
   lat: number;
@@ -13,58 +12,21 @@ interface SearchHistoryItem {
 }
 
 export function useSearchHistory() {
-  const [history, setHistory] = useLocalStorage<SearchHistoryItem[]>(
-    "search-history",
-    []
-  );
-
-  const queryClient = useQueryClient();
-
-  const historyQuery = useQuery({
-    queryKey: ["search-history"],
-    queryFn: () => history,
-    initialData: history,
-  });
-
-  const addHistory = useMutation({
-    mutationFn: async (
-      search: Omit<SearchHistoryItem, "id" | "searchedAt">
-    ) => {
-      const newSearch: SearchHistoryItem = {
-        ...search,
-        id: crypto.randomUUID(),
-        searchedAt: Date.now(),
-      };
-
-      const filteredHistory = history.filter(
-        (item) => item.lat !== search.lat && item.lon !== search.lon
-      );
-
-      const newHistory = [newSearch, ...filteredHistory].slice(0, 10);
-
-      setHistory(newHistory);
-
-      return newHistory;
-    },
-    onSuccess: (newHistory) => {
-      queryClient.setQueryData(["search-history"], newHistory);
-    },
-  });
-
-  const removeHistory = useMutation({
-    mutationFn: async () => {
-      setHistory([]);
-
-      return [];
-    },
-    onSuccess: () => {
-      queryClient.setQueryData(["search-history"], []);
-    },
-  });
-
+  const [stored, setHistory] = useLocalStorage<SearchHistoryItem[]>("search-history", []);
+  const history = Array.isArray(stored) ? stored : [];
   return {
-    history: historyQuery.data,
-    addHistory,
-    removeHistory,
+    history,
+    addHistory: {
+      mutate: (search: Omit<SearchHistoryItem, "id" | "searchedAt">) => {
+        setHistory((previous) => {
+          const current = Array.isArray(previous) ? previous : [];
+          const item: SearchHistoryItem = {
+            ...search, id: search.lat + "-" + search.lon, searchedAt: Date.now(),
+          };
+          return [item, ...current.filter((old) => old.id !== item.id)].slice(0, 10);
+        });
+      },
+    },
+    removeHistory: { mutate: () => setHistory([]) },
   };
 }

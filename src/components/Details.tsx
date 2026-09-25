@@ -1,84 +1,29 @@
 import type { Weather } from "../api/types";
-import { format } from "date-fns";
-import Sunrise from "./svgs/sunrise";
-import Sunset from "./svgs/sunset";
-import Compass from "./svgs/compass";
-import Pressure from "./svgs/pressure";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Compass } from "pixelarticons/react";
+import { PixelPressure, PixelSunrise, PixelSunset } from "./PixelDetailIcons";
+import { formatUtcClock } from "../lib/weatherTime";
 
-interface WeatherDetails {
-  data: Weather;
-}
-
-const Details = ({ data }: WeatherDetails) => {
-  const { wind, main, sys } = data;
-
-  const formatTime = (time: number) => {
-    return format(new Date(time * 1000), "h:mm a");
-  };
-
-  const getWindDirection = (degrees: number) => {
-    const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-    const index = Math.round(degrees / 45);
-    return directions[index % 8];
-  };
-
+export default function Details({ data }: { data: Weather }) {
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const direction = directions[Math.round(data.wind.deg / 45) % 8];
   const details = [
-    {
-      title: "Sunrise",
-      value: formatTime(sys.sunrise),
-      icon: Sunrise,
-      color: "text-orange-300",
-    },
-    {
-      title: "Sunset",
-      value: formatTime(sys.sunset),
-      icon: Sunset,
-      color: "text-purple-300",
-    },
-    {
-      title: "Wind",
-      value: `${getWindDirection(wind.deg)} (${wind.deg}°)`,
-      icon: Compass,
-      color: "text-blue-300",
-    },
-    {
-      title: "Pressure",
-      value: `${main.pressure} hPa`,
-      icon: Pressure,
-      color: "text-green-300",
-    },
+    { title: "Sunrise", value: formatUtcClock(data.sys.sunrise), Icon: PixelSunrise },
+    { title: "Sunset", value: formatUtcClock(data.sys.sunset), Icon: PixelSunset },
+    { title: "Wind direction", value: direction + " / " + data.wind.deg.toFixed(1) + "°", Icon: Compass },
+    { title: "Pressure", value: data.main.pressure.toFixed(1) + " hPa", Icon: PixelPressure },
   ];
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl">Weather Details</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-6 sm:grid-cols-2">
-          {details.map((detail) => {
-            return (
-              <div
-                key={detail.title}
-                className="flex items-center gap-6 rounded-lg border p-4"
-              >
-                <detail.icon className={`size-7 ${detail.color}`} />
-                <div>
-                  <p className="text-xl font-medium leading-none">
-                    {detail.title}
-                  </p>
-                  <p className="text-xl text-muted-foreground">
-                    {detail.value}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+    <Card className="pixel-card">
+      <CardHeader><div><p className="eyebrow">LOCAL READOUT</p><CardTitle className="section-title">Weather details</CardTitle></div></CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2">
+        {details.map(({ title, value, Icon }) => (
+          <div key={title} className="detail-tile">
+            <Icon className="size-7 text-[#ffcf82]" />
+            <div><p className="stat-label">{title}</p><strong>{value}</strong></div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
-};
-
-export default Details;
+}

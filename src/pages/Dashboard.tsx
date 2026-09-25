@@ -1,163 +1,56 @@
-// Data hooks
 import { useLocation } from "../components/hooks/useLocation";
-import { useForecast, useGeoLocation, useWeather } from "../components/hooks/useWeather";
-
-// Components
+import { useForecast, useWeather } from "../components/hooks/useWeather";
 import { Button } from "../components/ui/button";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-
-// Icons
-import { AlertTriangle, MapPin, RefreshCw } from "lucide-react";
-import Reload from "../components/svgs/reload";
-
-// Data
-import CurrentWeather from "../components/CurrentWeather";
-import HourlyTemp from "../components/HourlyTemp";
-import Details from "../components/Details";
-import Forecast from "../components/Forecast";
+import { MapPin, RefreshCw } from "lucide-react";
+import WeatherPanels from "../components/WeatherPanels";
 import Favourites from "../components/Favourites";
 
-const Dashboard = () => {
-  const {
-    coordinates,
-    error: LocationError,
-    getLocation,
-    isLoading: LocationLoading,
-  } = useLocation();
-
-  const queries = {
-    weather: useWeather(coordinates ?? { lat: 0, lon: 0 }),
-    forecast: useForecast(coordinates ?? { lat: 0, lon: 0 }),
-    location: useGeoLocation(coordinates ?? { lat: 0, lon: 0 }),
-  };
-
-  const handleRefresh = () => {
-    getLocation();
-    if (!coordinates) return;
-
-    queries.weather.refetch();
-    queries.forecast.refetch();
-    queries.location.refetch();
-  };
-
-  if (LocationLoading) {
-    return <LoadingSkeleton />;
-  }
-
-  if (LocationError) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertTitle className="text-2xl">Error fetching location</AlertTitle>
-        <AlertDescription className="flex flex-col gap-4 text-xl">
-          {LocationError}
-          <Button
-            onClick={getLocation}
-            variant={"destructive"}
-            className="w-fit cursor-pointer"
-          >
-            <MapPin className="mr-1 size-4" />
-            <p className="text-xl">Enable location</p>
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (!coordinates) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertTitle className="text-2xl">Error fetching location</AlertTitle>
-        <AlertDescription className="flex flex-col gap-4 text-xl">
-          <p>Please enable location access to check your local weather</p>
-          <Button
-            onClick={getLocation}
-            variant={"destructive"}
-            className="w-fit cursor-pointer"
-          >
-            <MapPin className="mr-1 size-4" />
-            <p className="text-xl">Enable location</p>
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  const locationName = queries.location.data?.[0];
-
-  if (queries.weather.error || queries.forecast.error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
-        <AlertTitle className="text-2xl">Error fetching weather</AlertTitle>
-        <AlertDescription className="flex flex-col gap-4 text-xl">
-          <p>
-            There was an error fetching the weather for{" "}
-            {locationName?.name ?? "your location"}
-          </p>
-          <Button
-            onClick={handleRefresh}
-            variant={"destructive"}
-            className="w-fit cursor-pointer"
-          >
-            <RefreshCw className="mr-1 size-4" />
-            <p className="text-xl">Refresh</p>
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (!queries.weather.data || !queries.forecast.data) {
-    return <LoadingSkeleton />;
-  }
+export default function Dashboard() {
+  const { coordinates, error: locationError, getLocation, isLoading } = useLocation();
+  const weather = useWeather(coordinates);
+  const forecast = useForecast(coordinates);
+  const refresh = () => { void Promise.all([weather.refetch(), forecast.refetch()]); };
 
   return (
-    <div className="space-y-4">
-      {/* favourites */}
+    <div className="space-y-5">
       <Favourites />
-
-      {/* main layout */}
-      <section className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-muted-foreground">Current Location</h1>
-        <Button
-          variant={"outline"}
-          size={"icon"}
-          onClick={handleRefresh}
-          disabled={queries.weather.isFetching || queries.forecast.isFetching}
-          className="cursor-pointer size-12"
-        >
-          <Reload
-            className={`size-6 ${
-              queries.weather.isFetching ? "animate-spin" : ""
-            }`}
-          />
-        </Button>
-      </section>
-
-      {/* current and hourly */}
-      <section className="grid gap-6">
-        <div className="flex flex-col gap-4">
-          {/* current weather */}
-          <CurrentWeather
-            data={queries.weather.data}
-            locationName={locationName}
-          />
-          {/* hourly temp */}
-          <HourlyTemp data={queries.forecast.data} />
+      <section className="flex items-center justify-between gap-4">
+        <div>
+          <p className="eyebrow">LOCAL TRANSMISSION / 001</p>
+          <h1 className="page-title">Current location</h1>
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2 items-start">
-          {/* details */}
-          <Details data={queries.weather.data} />
-          {/* forecast */}
-          <Forecast data={queries.forecast.data}/>
-        </div>
+        {coordinates && (
+          <Button variant="outline" size="icon" onClick={refresh} disabled={weather.isFetching}
+            className="pixel-button size-12" aria-label="Refresh weather">
+            <RefreshCw className={weather.isFetching ? "size-5 pixel-step-spin" : "size-5"} />
+          </Button>
+        )}
       </section>
+      {isLoading && !coordinates ? <LoadingSkeleton /> : !coordinates ? (
+        <Alert className="pixel-card">
+          <MapPin className="size-5" />
+          <AlertTitle>Location signal unavailable</AlertTitle>
+          <AlertDescription className="space-y-4">
+            <p>{locationError || "Allow location access to see weather nearby, or search for a city above."}</p>
+            <Button onClick={getLocation} className="pixel-button">Try location again</Button>
+          </AlertDescription>
+        </Alert>
+      ) : weather.error || forecast.error ? (
+        <Alert className="pixel-card">
+          <AlertTitle>Weather signal lost</AlertTitle>
+          <AlertDescription className="space-y-4">
+            <p>{(weather.error || forecast.error)?.message || "Could not load the forecast."}</p>
+            <Button onClick={refresh} className="pixel-button">Retry forecast</Button>
+          </AlertDescription>
+        </Alert>
+      ) : !weather.data || !forecast.data ? <LoadingSkeleton /> : (
+        <>
+          {locationError && <p className="status-note">{locationError} Showing the last known location.</p>}
+          <WeatherPanels weather={weather.data} forecast={forecast.data} />
+        </>
+      )}
     </div>
   );
-};
-
-export default Dashboard;
+}

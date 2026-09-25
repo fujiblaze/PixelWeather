@@ -1,106 +1,43 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useFavourites } from "./hooks/useFavourites";
-import { ScrollArea } from "./ui/scroll-area";
 import { useWeather } from "./hooks/useWeather";
-import { Button } from "./ui/button";
-import Delete from "./svgs/delete";
+import WeatherIcon from "./WeatherIcon";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import Loading from "./svgs/loading";
+import type { FavouriteCity } from "./hooks/useFavourites";
 
-interface FavouriteCityTooltip {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  onRemove: (id: string) => void;
+export default function Favourites() {
+  const { favourites, removeFavourites } = useFavourites();
+  if (!favourites.length) return null;
+  return (
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between"><h2 className="section-title">Favourites</h2>
+        <span className="eyebrow">{favourites.length} / 10 SAVED</span></div>
+      <div className="favourites-strip">
+        {favourites.map((city) => <FavouriteTile key={city.id} city={city}
+          onRemove={() => { removeFavourites.mutate(city.id); toast.message(city.name + " removed from favourites."); }} />)}
+      </div>
+    </section>
+  );
 }
 
-const Favourites = () => {
-  const { favourites, removeFavourites } = useFavourites();
-
-  if (!favourites.length) return null;
-
+function FavouriteTile({ city, onRemove }: { city: FavouriteCity; onRemove: () => void }) {
+  const { data, error } = useWeather({ lat: city.lat, lon: city.lon });
+  const params = new URLSearchParams({
+    lat: String(city.lat), lon: String(city.lon), country: city.country,
+  });
+  if (city.state) params.set("state", city.state);
   return (
-    <>
-      <h1 className="text-2xl font-bold tracking-tight">Favourites</h1>
-      <ScrollArea className="w-full pb-4">
-        <div className="flex gap-4">
-          {favourites.map((city) => {
-            return (
-              <FavouriteCityTooltip
-                key={city.id}
-                {...city}
-                onRemove={() => removeFavourites.mutate(city.id)}
-              />
-            );
-          })}
-        </div>
-      </ScrollArea>
-    </>
-  );
-};
-
-function FavouriteCityTooltip({
-  id,
-  name,
-  lat,
-  lon,
-  onRemove,
-}: FavouriteCityTooltip) {
-  const navigate = useNavigate();
-  const { data: weather, isLoading } = useWeather({ lat, lon });
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => navigate(`/location/${name}?lat=${lat}&lon=${lon}`)}
-      className="relative flex min-w-[250px] cursor-pointer items-center gap-4 rounded-lg border bg-card p-4 pr-8 shadow-sm transition-all hover:shadow-md"
-    >
-      <Button
-        className="bg-card absolute right-1 top-1 size-6 rounded-full p-0 hover:text-destructive group-hover:opacity-100"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(id);
-          toast.error(`${name} has been removed from favourites.`);
-        }}
-      >
-        <Delete className="size-5 text-red-300" />
-      </Button>
-
-      {isLoading ? (
-        <div className="flex h-8 items-center justify-center">
-          <Loading className="size-5 animate-spin" />
-        </div>
-      ) : weather ? (
-        <>
-          <div className="flex items-center gap-2">
-            <img
-              className="size-8"
-              src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
-              alt="Icon"
-            />
-            <div>
-              <p className="text-xl font-medium">{name}</p>
-              <p className="text-md text-muted-foreground">
-                {weather.sys.country}
-              </p>
-            </div>
-          </div>
-          <div className="ml-auto text-right">
-            <p className="text-xl font-bold">
-              {Math.round(weather.main.temp)}°C
-            </p>
-            <p className="text-md capitalize text-muted-foreground">
-              {weather.weather[0].description}
-            </p>
-          </div>
-        </>
-      ) : (
-        ""
-      )}
+    <div className="favourite-tile">
+      <Link to={"/location/" + encodeURIComponent(city.name) + "?" + params.toString()}
+        className="favourite-link" aria-label={"View weather in " + city.name}>
+        {data ? <WeatherIcon code={data.weather[0].id} icon={data.weather[0].icon} className="size-12 shrink-0" /> :
+          <span className="favourite-placeholder">··</span>}
+        <span className="min-w-0"><strong>{city.name}</strong><small>{city.country || city.state}</small></span>
+        <span className="favourite-temp">{data ? data.main.temp.toFixed(1) + "°" : error ? "!" : "..."}</span>
+      </Link>
+      <button type="button" className="favourite-remove" onClick={onRemove}
+        aria-label={"Remove " + city.name + " from favourites"}><Trash2 className="size-4" /></button>
     </div>
   );
 }
-
-export default Favourites;
